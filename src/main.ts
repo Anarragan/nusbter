@@ -27,9 +27,9 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000
   await app.listen(port)
  
-  console.log(`\n🎵 Music App corriendo en http://localhost:${port}`)
-  console.log(`📖 Swagger UI en      http://localhost:${port}/docs`)
-  console.log(`📄 Swagger JSON en    http://localhost:${port}/docs-json\n`)
+  console.log(`\nNubster en http://localhost:${port}`)
+  console.log(`Swagger UI en      http://localhost:${port}/docs`)
+  console.log(`Swagger JSON en    http://localhost:${port}/docs-json\n`)
 }
  
 bootstrap()

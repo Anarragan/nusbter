@@ -1,40 +1,31 @@
-import { Injectable, BadRequestException } from '@nestjs/common'
-import type { AudioQuality, StreamType } from '../../domain/repositories/audio-stream.repository'
- 
+import { Injectable, Inject } from '@nestjs/common'
+import { AUDIO_STREAM_SERVICE, type AudioStreamService } from '../../domain/services/audio-stream.service'
+import { VideoId } from '../../domain/value-object/video-id'
+import { AudioQuality, StreamType } from '../../domain/types/audio.types'
+import type { StreamResult } from '../../domain/services/audio-stream.service'
+
 export interface StreamSongInput {
   videoId: string
   quality?: AudioQuality
   type?: StreamType
 }
 
-export interface StreamSongValidated {
-  videoId: string
-  quality: AudioQuality
-  type: StreamType
-}
- 
 @Injectable()
-export class StreamSongUseCase {
-  async execute(input: StreamSongInput): Promise<StreamSongValidated> {
-    const { videoId, quality = 'best', type = 'audio' } = input
- 
-    if (!videoId?.trim()) {
-      throw new BadRequestException('videoId cannot be empty')
-    }
+export class StreamSong {
+  constructor(
+    @Inject(AUDIO_STREAM_SERVICE)
+    private readonly audioService: AudioStreamService,
+  ) {}
 
-    if (!['audio', 'av'].includes(type)) {
-      throw new BadRequestException('type must be "audio" or "av"')
-    }
- 
-    const trimmedVideoId = videoId.trim()
-    if (trimmedVideoId.length !== 11) {
-      throw new BadRequestException('Invalid videoId — must be 11 characters')
-    }
- 
-    return {
-      videoId: trimmedVideoId,
+  async execute(input: StreamSongInput): Promise<StreamResult> {
+    const videoId = VideoId.create(input.videoId)
+
+    const quality = input.quality ?? 'best'
+    const type = input.type ?? 'audio'
+
+    return this.audioService.getStream(videoId.value, {
       quality,
       type,
-    }
+    })
   }
 }

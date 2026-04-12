@@ -1,8 +1,11 @@
 import { Song } from '../entities/song.entity'
- 
-// Token para la inyección de dependencias en NestJS
-export const SONG_REPOSITORY = 'SONG_REPOSITORY'
- 
+import { SearchQuery } from '../value-object/search-query'
+import { SearchLimit } from '../value-object/search-limit'
+
+export const SONG_REPOSITORY = Symbol('SONG_REPOSITORY')
+
 export interface SongRepository {
-  search(query: string, limit?: number): Promise<Song[]>
+  search(query: SearchQuery, limit: SearchLimit): Promise<Song[]>
+
+  getById(videoId: string): Promise<Song | null>
 }

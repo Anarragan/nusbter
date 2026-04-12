@@ -1,43 +1,39 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import { SONG_REPOSITORY } from '../../domain/repositories/song.repository'
 import type { SongRepository } from '../../domain/repositories/song.repository'
-import { Song } from '../../domain/entities/song.entity'
- 
+import { SearchQuery } from '../../domain/value-object/search-query'
+import { SearchLimit } from '../../domain/value-object/search-limit'
+import { SongMapper } from '../mappers/song.mapper'
+import { SongDTO } from '../dto/songDTO'
+
 export interface SearchSongsInput {
   query: string
   limit?: number
 }
- 
+
 export interface SearchSongsOutput {
-  songs: ReturnType<Song['toJSON']>[]
+  songs: SongDTO[]
   total: number
   query: string
 }
- 
+
 @Injectable()
-export class SearchSongsUseCase {
+export class SearchSongs {
   constructor(
     @Inject(SONG_REPOSITORY)
     private readonly songRepository: SongRepository,
   ) {}
- 
+
   async execute(input: SearchSongsInput): Promise<SearchSongsOutput> {
-    const { query, limit = 10 } = input
- 
-    if (!query?.trim()) {
-      throw new BadRequestException('Search query cannot be empty')
-    }
- 
-    if (limit < 1 || limit > 50) {
-      throw new BadRequestException('Limit must be between 1 and 50')
-    }
- 
-    const songs = await this.songRepository.search(query.trim(), limit)
- 
-    return {
-      songs: songs.map((s) => s.toJSON()),
-      total: songs.length,
-      query: query.trim(),
-    }
+  const query = SearchQuery.create(input.query)
+  const limit = SearchLimit.create(input.limit)
+
+  const songs = await this.songRepository.search(query, limit)
+
+  return {
+    songs: songs.map(SongMapper.toDTO),
+    total: songs.length,
+    query: query.value,
   }
+}
 }
