@@ -23,6 +23,7 @@ export class StreamController {
     videoId,
     type,
     quality,
+    range,
   })
 
   const stream = result.stream as Readable
@@ -45,9 +46,20 @@ export class StreamController {
     ;(res as any).flushHeaders()
   }
 
-  req.on('close', () => stream.destroy())
+  const cleanup = () => {
+    if (!stream.destroyed) {
+      stream.destroy()
+    }
+  }
 
-  stream.on('error', () => res.end())
+  req.on('close', cleanup)
+  res.on('close', cleanup)
+  res.on('error', cleanup)
+
+  stream.on('error', () => {
+    cleanup()
+    res.end()
+  })
 
   stream.pipe(res)
   }

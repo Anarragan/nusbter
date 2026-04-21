@@ -8,6 +8,7 @@ export interface StreamSongInput {
   videoId: string
   quality?: AudioQuality
   type?: StreamType
+  range?: string
 }
 
 @Injectable()
@@ -26,6 +27,7 @@ export class StreamSong {
     return this.audioService.getStream(videoId.value, {
       quality,
       type,
+      range: input.range,
     })
   }
 }

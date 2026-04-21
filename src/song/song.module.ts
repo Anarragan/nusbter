@@ -4,6 +4,8 @@ import { Module } from '@nestjs/common'
 import { SongController } from './controllers/song.controller'
 import { StreamController } from './controllers/stream.controller'
 import { DownloadController } from './controllers/download.controller'
+import { MetricsController } from './controllers/metrics.controller'
+import { PreloadController } from './controllers/preload.controller'
 
 // Use cases
 import { SearchSongs } from './application/use-cases/search-song.use-case'
@@ -26,19 +28,23 @@ import { HttpStreamClient } from './infraestrucutre/yt/HttpStreamClient'
 
 // Infrastructure - cache
 import { AudioCacheService } from './infraestrucutre/cache/AudioCacheService'
+import { DownloadFileCacheService } from './infraestrucutre/cache/DownloadFileCacheService'
 
 // Infrastructure - media
 import { FfmpegService } from './infraestrucutre/media/ffmeg.service'
+import { DownloadPreparationService } from './infraestrucutre/media/download-preparation.service'
 
 // Common
 import { RequestLoggingInterceptor } from '../common/interceptors/request-logging.interceptor'
+import { RequestMetricsService } from '../common/services/request-metrics.service'
 
 @Module({
-  controllers: [SongController, StreamController, DownloadController],
+  controllers: [SongController, StreamController, DownloadController, MetricsController, PreloadController],
 
   providers: [
     // Interceptors
     RequestLoggingInterceptor,
+    RequestMetricsService,
 
     // Use cases
     SearchSongs,
@@ -49,9 +55,10 @@ import { RequestLoggingInterceptor } from '../common/interceptors/request-loggin
       provide: SONG_REPOSITORY,
       useClass: YTMusicSongRepository,
     },
+    YtStreamService,
     {
       provide: AUDIO_STREAM_SERVICE,
-      useClass: YtStreamService,
+      useExisting: YtStreamService,
     },
 
     // Infra dependencies (auto-injected)
@@ -59,7 +66,9 @@ import { RequestLoggingInterceptor } from '../common/interceptors/request-loggin
     YtUrlResolver,
     HttpStreamClient,
     AudioCacheService,
+    DownloadFileCacheService,
     FfmpegService,
+    DownloadPreparationService,
   ],
 })
 export class SongModule {}

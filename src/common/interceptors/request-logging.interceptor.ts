@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { Observable } from 'rxjs'
+import { RequestMetricsService } from '../services/request-metrics.service'
 
 function redactHeaders(headers: Record<string, unknown>) {
   const redactedKeys = new Set(['authorization', 'cookie', 'set-cookie'])
@@ -22,6 +23,8 @@ function redactHeaders(headers: Record<string, unknown>) {
 
 @Injectable()
 export class RequestLoggingInterceptor implements NestInterceptor {
+  constructor(private readonly requestMetricsService: RequestMetricsService) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') {
       return next.handle()
@@ -34,6 +37,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     let firstByteNs: bigint | undefined
     const method = req.method
     const url = (req as any).originalUrl ?? req.url
+    const route = this.buildRouteKey(req)
     const requestHeaders = redactHeaders(req.headers as unknown as Record<string, unknown>)
 
     let logged = false
@@ -65,12 +69,22 @@ export class RequestLoggingInterceptor implements NestInterceptor {
 
       const base = {
         method,
+        route,
         url,
         statusCode: res.statusCode,
         durationMs: Number(durationMs.toFixed(1)),
         ...(ttfbMs !== undefined ? { ttfbMs: Number(ttfbMs.toFixed(1)) } : {}),
         event,
       }
+
+      this.requestMetricsService.record({
+        method,
+        route,
+        statusCode: res.statusCode,
+        durationMs,
+        ttfbMs,
+        aborted: Boolean(extra?.aborted),
+      })
 
       // eslint-disable-next-line no-console
       console.log('[HTTP]', { ...base, ...extra })
@@ -88,5 +102,17 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     })
 
     return next.handle()
+  }
+
+  private buildRouteKey(req: Request): string {
+    const baseUrl = (req.baseUrl ?? '').toString()
+    const routePath = (req.route?.path ?? '').toString()
+
+    if (routePath) {
+      return `${baseUrl}${routePath}`
+    }
+
+    const withoutQuery = ((req as any).originalUrl ?? req.url ?? '').toString().split('?')[0]
+    return withoutQuery || '/'
   }
 }

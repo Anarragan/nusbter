@@ -57,6 +57,136 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Docker and Railway Deployment
+
+### Local container stack
+
+```bash
+# Build image only
+npm run docker:build
+
+# Start API + Redis
+npm run docker:up
+
+# Follow logs
+npm run docker:logs
+
+# Stop stack
+npm run docker:down
+```
+
+Health endpoint for platform checks:
+
+- `GET /api/songs/metrics`
+
+### Railway deployment (recommended)
+
+This repository includes a production-ready `Dockerfile` for Railway.
+
+Required Railway variables:
+
+- `PORT` -> provided by Railway (keep as platform default)
+- `REDIS_URL` -> connect from Railway Redis plugin
+- `CORS_ORIGINS` -> your frontend domain (comma separated for multiple domains)
+- `ENABLE_SWAGGER` -> `false` in production
+- `NODE_ENV` -> `production`
+
+Example values:
+
+```bash
+NODE_ENV=production
+PORT=3000
+REDIS_URL=redis://default:password@host:port
+CORS_ORIGINS=https://your-frontend-domain.com
+ENABLE_SWAGGER=false
+```
+
+Railway notes:
+
+- Add a Redis plugin and use its connection URL as `REDIS_URL`.
+- If you need multiple frontend domains, set `CORS_ORIGINS` as `https://a.com,https://b.com`.
+- Use `*` in `CORS_ORIGINS` only for temporary testing environments.
+
+## Audio Delivery: Fase 2 + descarga optimizada
+
+Esta version incluye un pipeline de precarga compartido entre streaming y descarga.
+
+### Flujo de optimizacion
+
+- Busqueda: precarga de stream Top 5 en background.
+- Busqueda: precarga selectiva de descarga MP3 para Top 3 en background.
+- Streaming: reutiliza cache local + cache compartida en Redis para evitar resolver yt-dlp en caliente.
+- Descarga: intenta servir un MP3 ya preparado desde cache de archivos local; si no existe, hace fallback a conversion en vivo.
+
+### Redis y BullMQ
+
+- Con REDIS_URL: activa cola distribuida y estado compartido de precarga.
+- Sin REDIS_URL: fallback automatico al modo local en memoria.
+
+Variables de entorno (ver .env.example):
+
+```bash
+PORT=3000
+REDIS_URL=redis://localhost:6379
+```
+
+### Redis local con Docker
+
+```bash
+# Levantar Redis local
+npm run redis:up
+
+# Ver logs
+npm run redis:logs
+
+# Detener servicios
+npm run redis:down
+```
+
+Tambien puedes ejecutar directamente:
+
+```bash
+docker compose up -d redis
+```
+
+### Endpoint de metricas
+
+`GET /api/songs/metrics`
+
+Incluye:
+
+- Estado de stream/preload (queue enabled, pending, errores, latencia promedio).
+- Metricas de cache de metadata de stream.
+- Metricas de cache de archivos de descarga (hits, misses, in-flight builds, tamano aproximado).
+- Metricas de peticiones por ruta (requests, aborts, avgDurationMs, avgTtfbMs).
+
+### Endpoint de precarga explicita (cola de reproduccion)
+
+`POST /api/songs/preload`
+
+Body de ejemplo:
+
+```json
+{
+  "videoIds": ["idActual", "idSiguiente", "idSiguiente2"],
+  "mode": "both",
+  "concurrency": 2,
+  "timeoutMs": 8000,
+  "downloadTop": 2
+}
+```
+
+Uso recomendado para boton siguiente/anterior en frontend:
+
+- Cuando inicia una cancion, enviar preload de los proximos 2-3 videoIds con `mode=both`.
+- Al presionar siguiente/anterior, reproducir el nuevo `videoId` y volver a disparar preload para la nueva ventana.
+- Mantener una ventana movil: `[actual, +1, +2, -1 opcional]`.
+
+### Dependencias agregadas
+
+- bullmq
+- ioredis
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
